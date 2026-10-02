@@ -106,6 +106,29 @@ func TestDetectPZPathOnSecondarySteamLibrary(t *testing.T) {
 	}
 }
 
+func TestDetectZBPathPrefersGameLibrary(t *testing.T) {
+	tmpDir := t.TempDir()
+	steamPath := filepath.Join(tmpDir, "steam")
+	gameLibrary := filepath.Join(tmpDir, "game-library")
+	pzPath := filepath.Join(gameLibrary, "steamapps", "common", "ProjectZomboid")
+	preferred := filepath.Join(gameLibrary, "steamapps", "workshop", "content", PZ_APP_ID, ZB_MOD_ID)
+	stale := filepath.Join(steamPath, "steamapps", "workshop", "content", PZ_APP_ID, ZB_MOD_ID)
+
+	for _, path := range []string{pzPath, preferred, stale} {
+		if err := os.MkdirAll(path, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := detectZBPath(steamPath, pzPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != preferred {
+		t.Fatalf("got %q, want %q", got, preferred)
+	}
+}
+
 func TestStripZombieBuddyLaunchOptions(t *testing.T) {
 	tests := []struct {
 		name    string
