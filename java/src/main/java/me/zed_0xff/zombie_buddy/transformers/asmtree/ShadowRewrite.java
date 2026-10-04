@@ -20,6 +20,7 @@ import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
+import org.objectweb.asm.tree.VarInsnNode;
 
 import me.zed_0xff.zombie_buddy.ShadowHandles;
 import me.zed_0xff.zombie_buddy.annotations.Shadow;
@@ -35,7 +36,6 @@ public class ShadowRewrite extends Transformer {
     private static final String HANDLES_INTERNAL  = Type.getInternalName(ShadowHandles.class);
     private static final String VH_INTERNAL       = "java/lang/invoke/VarHandle";
     private static final String MH_INTERNAL       = "java/lang/invoke/MethodHandle";
-    private static final String INTEGER_INTERNAL  = "java/lang/Integer";
     private static final int ACC_HANDLE = Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC;
 
     @Override
@@ -178,7 +178,7 @@ public class ShadowRewrite extends Transformer {
         }
 
         String handleName = state.handleMethod(ctx, method);
-        InsnList repl = emitMethodHandleInvoke(min.getOpcode(), state.m_patchInternal, handleName, method);
+        InsnList repl = emitMethodHandleInvoke(min.getOpcode(), state.m_patchInternal, handleName, method, mn.maxLocals);
         mn.instructions.insert(min, repl);
         mn.instructions.remove(min);
 
@@ -241,19 +241,60 @@ public class ShadowRewrite extends Transformer {
         return insns;
     }
 
-    private static InsnList emitMethodHandleInvoke(int opcode, String patchInternal, String handleName, TargetMethodInfo method) {
+    /**
+     * Builds the stack as [receiver?, arg0..argN-1] (from the original, now-removed invoke) in place:
+     * stashes those already-pushed values into scratch locals (starting at {@code baseLocal}, which is
+     * always >= the method's original maxLocals, so reuse across multiple call sites in the same method
+     * is safe — each stash/reload sequence is self-contained and doesn't outlive its own call site),
+     * pushes the MethodHandle, then reloads the stashed values so the MethodHandle ends up as the
+     * invoke receiver with the original args following it. The invoke call-site descriptor mirrors the
+     * target method's real descriptor (receiver typed as Object) so {@code MethodHandle.invoke}'s
+     * signature-polymorphic {@code asType} adaptation handles arbitrary arities/types/return values
+     * (including {@code void}) without manual boxing/unboxing.
+     */
+    private static InsnList emitMethodHandleInvoke(int opcode, String patchInternal, String handleName, TargetMethodInfo method, int baseLocal) {
         boolean isStatic = method.isStatic() || opcode == Opcodes.INVOKESTATIC;
-        InsnList insns = new InsnList();
-        insns.add(new FieldInsnNode(Opcodes.GETSTATIC, patchInternal, handleName, "Ljava/lang/invoke/MethodHandle;"));
+        Type[] argTypes = Type.getArgumentTypes(method.descriptor());
+        Type returnType = Type.getReturnType(method.descriptor());
 
+        int receiverLocal = -1;
+        int[] argLocals = new int[argTypes.length];
+        int next = baseLocal;
         if (!isStatic) {
-            insns.add(new InsnNode(Opcodes.SWAP));
+            receiverLocal = next++;
+        }
+        for (int i = 0; i < argTypes.length; i++) {
+            argLocals[i] = next;
+            next += argTypes[i].getSize();
         }
 
-        String invokeDesc = isStatic ? "()Ljava/lang/Object;" : "(Ljava/lang/Object;)Ljava/lang/Object;";
-        insns.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, MH_INTERNAL, "invoke", invokeDesc, false));
-        insns.add(new TypeInsnNode(Opcodes.CHECKCAST, INTEGER_INTERNAL));
-        insns.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, INTEGER_INTERNAL, "intValue", "()I", false));
+        InsnList insns = new InsnList();
+
+        for (int i = argTypes.length - 1; i >= 0; i--) {
+            insns.add(new VarInsnNode(argTypes[i].getOpcode(Opcodes.ISTORE), argLocals[i]));
+        }
+        if (!isStatic) {
+            insns.add(new VarInsnNode(Opcodes.ASTORE, receiverLocal));
+        }
+
+        insns.add(new FieldInsnNode(Opcodes.GETSTATIC, patchInternal, handleName, "Ljava/lang/invoke/MethodHandle;"));
+        if (!isStatic) {
+            insns.add(new VarInsnNode(Opcodes.ALOAD, receiverLocal));
+        }
+        for (int i = 0; i < argTypes.length; i++) {
+            insns.add(new VarInsnNode(argTypes[i].getOpcode(Opcodes.ILOAD), argLocals[i]));
+        }
+
+        StringBuilder invokeDesc = new StringBuilder("(");
+        if (!isStatic) {
+            invokeDesc.append("Ljava/lang/Object;");
+        }
+        for (Type argType : argTypes) {
+            invokeDesc.append(argType.getDescriptor());
+        }
+        invokeDesc.append(')').append(returnType.getDescriptor());
+
+        insns.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, MH_INTERNAL, "invoke", invokeDesc.toString(), false));
 
         return insns;
     }

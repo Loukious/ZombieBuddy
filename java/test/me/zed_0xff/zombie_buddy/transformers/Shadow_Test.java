@@ -107,6 +107,22 @@ class Shadow_Test extends AbstractTest {
         static int getResult() { return new ShadowMethod2().call(); }
     }
 
+    @TestCase(methodName = "combine", expected = 42, patchClass = PatchMethodArgs.class)
+    @Shadow(className = TARGET)
+    static class ShadowMethodArgs {
+        @Shadow.Field int combined;
+
+        @Shadow.Method
+        void combine(int a, String b) {}
+    }
+    static class PatchMethodArgs {
+        static int getResult() {
+            ShadowMethodArgs s = new ShadowMethodArgs();
+            s.combine(40, "xy");
+            return s.combined;
+        }
+    }
+
     @TestCase(field = "privateField", fieldName = "privateField", patchClass = PatchCast.class)
     @Shadow(className = TARGET)
     static class ShadowCast {
@@ -182,12 +198,13 @@ class Shadow_Test extends AbstractTest {
         var ctx = new TestClassContext(tc.patchClass(), jctx);
         var bytes = ctx.getBytes();
         var run = runTransformers(ctx, bytes, List.of(Unshadow.class, ShadowRewrite.class));
-        if ("".equals(tc.field())) {
-            // TODO
-        } else {
+        try {
             assertTransformed(run);
             assertThat(run.bytes()).isNotNull();
             assertThat(invokeGetResult(tc.patchClass().getName(), run.bytes())).isEqualTo(tc.expected());
+        } catch (Throwable t) {
+            printDumps(run.dumps());
+            throw t;
         }
     }
 
