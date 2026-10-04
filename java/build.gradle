@@ -1,7 +1,7 @@
 plugins {
     id 'java'
     id 'signing'
-    id 'com.gradleup.shadow' version '9.2.2'
+    id 'com.gradleup.shadow' version '9.6.1'
     id 'io.github.zed-0xff.zb-gradle-plugin' version '1.0.3'
 }
 
@@ -35,17 +35,17 @@ dependencies {
     implementation 'net.bytebuddy:byte-buddy-agent:1.18.14'
 //    implementation 'org.ow2.asm:asm:9.10.1'
     implementation 'org.ow2.asm:asm-tree:9.10.1'                   // XXX should match version.asm in byte-buddy's pom.xml
-    implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
-    implementation 'com.google.code.gson:gson:2.12.1'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.86'
+    implementation 'com.google.code.gson:gson:2.14.0'
 
     compileOnly files(GAME_CLASSPATH)
     
     // Test dependencies
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
-    testImplementation 'org.mockito:mockito-core:5.5.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.5.0'
-    testImplementation 'org.assertj:assertj-core:3.25.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.1.3'
+    testImplementation 'org.mockito:mockito-core:5.24.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.24.0'
+    testImplementation 'org.assertj:assertj-core:3.27.7'
 }
 
 def MOD_ID = project.projectDir.parentFile.name
@@ -74,8 +74,14 @@ shadowJar {
             'Implementation-Version': version
         )
     }
+
     mergeServiceFiles()
-    
+
+    // ServiceFileTransformer needs to see all copies so it can merge them.
+    filesMatching('META-INF/services/**') {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
+
     relocate 'com.google.gson', 'zb.com.google.gson'
     relocate 'org.bouncycastle', 'zb.org.bouncycastle'
 
@@ -85,6 +91,7 @@ shadowJar {
     exclude 'META-INF/*.MF'
     exclude 'META-INF/versions/**'
     exclude '*.dll'
+
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
@@ -425,11 +432,11 @@ dependencies {
     testPatchedImplementation files(tasks.named('testJar'))
     
     // Test dependencies for vanilla and patched tests
-    testVanillaImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
-    testVanillaRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+    testVanillaImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
+    testVanillaRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.1.3'
 
-    testPatchedImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
-    testPatchedRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+    testPatchedImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
+    testPatchedRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.1.3'
 
     // required for running tests because many ZB classes reference PZ classes, even if not directly tested, e.g. Exposer
     testPatchedRuntimeOnly files(GAME_CLASSPATH)

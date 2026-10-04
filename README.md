@@ -87,7 +87,7 @@ public static class MyPatch {
 ## Requirements
 
 - **Project Zomboid** (Build 42+)
-- **Java 17** (required by the game)
+- **Java 25** (required by the game)
 - **Gradle** (for building Java mods)
 
 ## ☕ Support the Project
