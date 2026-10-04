@@ -151,7 +151,7 @@ public class Loader {
     static final String BUNDLED_EXPERIMENTAL_JAR = "experimental.jar";
 
     private static Path embeddedJarKey(String resourceName) {
-        return Path.of("classpath:" + resourceName);
+        return Path.of(resourceName);
     }
 
     // Persisted entries loaded from disk - the source of truth for saving
