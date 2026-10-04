@@ -1,24 +1,22 @@
-package me.zed_0xff.zombie_buddy.patches.experimental;
+package me.zed_0xff.zombie_buddy.patches;
 
 import me.zed_0xff.zombie_buddy.annotations.Patch;
-import me.zed_0xff.zombie_buddy.Agent;
+import me.zed_0xff.zombie_buddy.Loader;
 import me.zed_0xff.zombie_buddy.Logger;
 import org.lwjgl.glfw.GLFW;
 
 public class Patch_MacOSRetina {
-    private static Boolean cachedPatchNeeded = null;
-    
+    private static Boolean cachedIsMacOS = null;
+
     // Reusable arrays for GLFW calls (avoid allocations)
     private static final int[] fbWidth = new int[1];
     private static final int[] fbHeight = new int[1];
 
     public static boolean isPatchNeeded() {
-        if (cachedPatchNeeded == null) {
-            // Only apply on macOS
-            cachedPatchNeeded = System.getProperty("os.name").contains("OS X")
-              && Agent.arguments.containsKey("retina");
+        if (cachedIsMacOS == null) {
+            cachedIsMacOS = System.getProperty("os.name").contains("OS X");
         }
-        return cachedPatchNeeded;
+        return cachedIsMacOS && Loader.fixMacOSRetina();
     }
     
     /**

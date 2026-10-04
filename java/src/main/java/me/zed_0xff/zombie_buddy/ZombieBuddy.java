@@ -43,6 +43,10 @@ public class ZombieBuddy {
         Loader.setAutoFixModOrder(value);
     }
 
+    public static void setFixMacOSRetina(boolean value) {
+        Loader.setFixMacOSRetina(value);
+    }
+
     // lua-facing variant of Loader.getActiveJavaMods(). Returns a list of modIds for JARs that were loaded this run.
     public static KahluaTable getActiveJavaMods() {
         var tbl = LuaManager.platform.newTable();

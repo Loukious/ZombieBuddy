@@ -1230,4 +1230,18 @@ public class Loader {
         Config.save(g_config);
         g_configDirty = false;
     }
+
+    public static boolean fixMacOSRetina() {
+        return g_config.fix_macos_retina();
+    }
+
+    public static void setFixMacOSRetina(boolean value) {
+        Config newConfig = g_config.withFixMacOSRetina(value);
+        if (newConfig.equals(g_config)) {
+            return;
+        }
+        g_config = newConfig;
+        Config.save(g_config);
+        g_configDirty = false;
+    }
 }
