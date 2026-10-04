@@ -106,7 +106,8 @@ shadowJar {
 //   - Set signing.keyAlias to your certificate's common name
 //   - Find certificate name: security find-identity -p codesigning -v
 //   - No storeFile or passwords needed
-def useKeychain = project.findProperty('signing.storeType') == 'KeychainStore'
+def osName = System.getProperty("os.name").toLowerCase()
+def useKeychain = osName.contains("mac") && project.findProperty('signing.storeType') == 'KeychainStore'
 def hasStoreFile = project.hasProperty('signing.storeFile')
 
 if (useKeychain) {
