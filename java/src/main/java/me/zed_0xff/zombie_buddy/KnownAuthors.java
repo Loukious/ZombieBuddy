@@ -176,7 +176,7 @@ public final class KnownAuthors {
                 .header("User-Agent", "ZombieBuddy/KnownAuthors (Java; +https://github.com/zed-0xff/ZombieBuddy)")
                 .GET()
                 .build();
-            HttpResponse<String> resp = SteamWorkshop.HTTP.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            HttpResponse<String> resp = SteamWorkshop.http().send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (resp.statusCode() == 200) {
                 String body = resp.body();
                 SteamWorkshop.putCachedBody(REMOTE_URL, "", body);

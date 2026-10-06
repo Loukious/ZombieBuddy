@@ -248,7 +248,7 @@ public final class ZBSVerifier {
                 .build();
             HttpResponse<String> resp;
             try {
-                resp = SteamWorkshop.HTTP.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                resp = SteamWorkshop.http().send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new IOException("Interrupted while fetching Steam profile.", e);

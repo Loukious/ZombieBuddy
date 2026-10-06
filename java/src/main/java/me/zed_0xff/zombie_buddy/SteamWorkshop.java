@@ -1,5 +1,6 @@
 package me.zed_0xff.zombie_buddy;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -78,13 +79,22 @@ public final class SteamWorkshop {
     }
 
     static final Duration HTTP_TIMEOUT = parseHttpTimeout();
-    static final HttpClient HTTP = HttpClient.newBuilder()
-        .connectTimeout(HTTP_TIMEOUT)
-        .followRedirects(HttpClient.Redirect.NORMAL)
-        .build();
-    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-        .connectTimeout(HTTP_TIMEOUT)
-        .build();
+    private static HttpClient httpClient;
+
+    /** Built lazily: HttpClient creation opens a Selector, which can fail on some platforms (e.g. Wine/Proton) and must not break class init. */
+    static synchronized HttpClient http() throws IOException {
+        if (httpClient == null) {
+            try {
+                httpClient = HttpClient.newBuilder()
+                    .connectTimeout(HTTP_TIMEOUT)
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .build();
+            } catch (RuntimeException | Error e) {
+                throw new IOException("Could not create HTTP client: " + e, e);
+            }
+        }
+        return httpClient;
+    }
 
     private static Duration parseHttpTimeout() {
         return Duration.ofSeconds(Agent.getArgInt("http.client.timeout", DEFAULT_TIMEOUT));
@@ -150,7 +160,7 @@ public final class SteamWorkshop {
                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
-            HttpResponse<String> resp = HTTP_CLIENT.send(req, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> resp = http().send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() != 200) {
                 setUnknownDetails(out, new HashSet<>(chunk),
                     "Steam API request failed (HTTP " + resp.statusCode() + ")");
