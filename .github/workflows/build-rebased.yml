@@ -1,0 +1,52 @@
+name: Build rebased ZombieBuddy installer
+
+on:
+  push:
+    branches:
+      - build-rebased-2026-10-09
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: installer/go.mod
+          cache-dependency-path: installer/go.sum
+
+      - name: Run installer tests
+        working-directory: installer
+        run: go test ./...
+
+      - name: Build Windows x64 installer
+        working-directory: installer
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p ../release
+          go build -trimpath -ldflags="-s -w" -o ../release/ZombieBuddyInstaller.exe .
+
+      - name: Verify Windows PE executable
+        run: |
+          file release/ZombieBuddyInstaller.exe
+          sha256sum release/ZombieBuddyInstaller.exe > release/SHA256SUMS.txt
+          test -s release/ZombieBuddyInstaller.exe
+
+      - name: Upload downloadable Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZombieBuddyInstaller-windows-x64-rebased
+          path: release/*
+          if-no-files-found: error
+          retention-days: 30
