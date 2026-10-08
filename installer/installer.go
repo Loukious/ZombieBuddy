@@ -20,7 +20,7 @@ import (
 const (
 	PZ_APP_ID         = "108600"
 	ZB_MOD_ID         = "3619862853"
-	INSTALLER_VERSION = "4.2"
+	INSTALLER_VERSION = "4.2.1"
 	ZB_LAUNCH_ARG     = "-agentlib:zbNative"
 	ZB_LAUNCH_OPTIONS = ZB_LAUNCH_ARG + " --"
 )
@@ -166,7 +166,12 @@ func promptInstallTargets() (patchTargets, error) {
 	case "alternate":
 		return patchTargets{alternateBatch: true}, nil
 	case "both":
-		return patchTargets{normalJSON: true, steamLaunchOptions: true, alternateBatch: true}, nil
+		// Use exactly one injection point for Normal Launch.  Patching both the
+		// launcher JSON and Steam launch options can make the JVM receive
+		// -agentlib:zbNative twice.  Keep the Steam-launch-options choice as an
+		// advanced Normal Launch option, but make the recommended Both mode use
+		// ProjectZomboid64.json + ProjectZomboid64.bat.
+		return patchTargets{normalJSON: true, alternateBatch: true}, nil
 	default:
 		return patchTargets{}, fmt.Errorf("unknown launch mode %q", value)
 	}
@@ -299,7 +304,19 @@ func install() operationResult {
 		return resultFailed
 	}
 
+	var staleSteamLaunchOptions []string
+	if targets.normalJSON && !targets.steamLaunchOptions {
+		staleSteamLaunchOptions, err = steamLaunchOptionRemovalPlan(paths.steam)
+		if err != nil {
+			fmt.Printf("[!] Error checking existing Steam launch options: %v\n", err)
+			return resultFailed
+		}
+	}
+
 	preview := installPreview(paths.pz, paths.steam, paths.zb, targets)
+	if len(staleSteamLaunchOptions) > 0 {
+		preview = append(preview, fmt.Sprintf("remove duplicate \"%s\" from PZ Steam launch options", ZB_LAUNCH_ARG))
+	}
 	confirmed, err := confirmChanges(preview)
 	if err != nil {
 		fmt.Printf("[!] Error reading confirmation: %v\n", err)
@@ -340,6 +357,13 @@ func install() operationResult {
 		err = updateLaunchOptions(paths.steam)
 		if err != nil {
 			fmt.Printf("[!] Error updating Steam launch options: %v\n", err)
+			return resultFailed
+		}
+	}
+
+	if len(staleSteamLaunchOptions) > 0 {
+		if err := removeLaunchOptions(staleSteamLaunchOptions); err != nil {
+			fmt.Printf("[!] Error removing duplicate Steam launch options: %v\n", err)
 			return resultFailed
 		}
 	}
@@ -400,7 +424,7 @@ func detectInstallPaths(includeZB bool) (installPaths, error) {
 
 	paths := installPaths{steam: steamPath, pz: pzPath}
 	if includeZB {
-		zbPath, err := detectZBPath(steamPath)
+		zbPath, err := detectZBPath(steamPath, pzPath)
 		if err != nil {
 			return installPaths{}, fmt.Errorf("Error detecting ZombieBuddy mod: %v", err)
 		}
@@ -561,7 +585,18 @@ func detectPZPath(steamPath string) (string, error) {
 	return "", fmt.Errorf("could not find Project Zomboid installation")
 }
 
-func detectZBPath(steamPath string) (string, error) {
+func detectZBPath(steamPath string, pzPath string) (string, error) {
+	// Workshop content normally lives in the same Steam library as the game.
+	// Prefer that copy so a stale subscription on another drive cannot supply
+	// an old zbNative.dll/ZombieBuddy.jar for a game installed elsewhere.
+	if pzPath != "" {
+		steamappsPath := filepath.Dir(filepath.Dir(pzPath))
+		gameLibraryPath := filepath.Join(steamappsPath, "workshop", "content", PZ_APP_ID, ZB_MOD_ID)
+		if _, err := os.Stat(gameLibraryPath); err == nil {
+			return gameLibraryPath, nil
+		}
+	}
+
 	// First check the default path
 	defaultPath := filepath.Join(steamPath, "steamapps", "workshop", "content", PZ_APP_ID, ZB_MOD_ID)
 	if _, err := os.Stat(defaultPath); err == nil {
