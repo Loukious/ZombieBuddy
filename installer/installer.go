@@ -303,13 +303,13 @@ func install() operationResult {
 	if targets.normalJSON && !targets.steamLaunchOptions {
 		staleSteamLaunchOptions, err = steamLaunchOptionRemovalPlan(paths.steam)
 		if err != nil {
-			fmt.Printf("[!] Error checking existing Steam launch options: %v\\n", err)
+			fmt.Printf("[!] Error checking existing Steam launch options: %v\n", err)
 			return resultFailed
 		}
 	}
 	preview := installPreview(paths.pz, paths.steam, paths.zb, targets)
 	if len(staleSteamLaunchOptions) > 0 {
-		preview = append(preview, fmt.Sprintf("remove duplicate \\"%s\\" from PZ Steam launch options", ZB_LAUNCH_ARG))
+		preview = append(preview, fmt.Sprintf("remove duplicate \"%s\" from PZ Steam launch options", ZB_LAUNCH_ARG))
 	}
 	confirmed, err := confirmChanges(preview)
 	if err != nil {
@@ -357,7 +357,7 @@ func install() operationResult {
 
 	if len(staleSteamLaunchOptions) > 0 {
 		if err := removeLaunchOptions(staleSteamLaunchOptions); err != nil {
-			fmt.Printf("[!] Error removing duplicate Steam launch options: %v\\n", err)
+			fmt.Printf("[!] Error removing duplicate Steam launch options: %v\n", err)
 			return resultFailed
 		}
 	}
